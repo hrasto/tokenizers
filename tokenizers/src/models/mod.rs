@@ -323,31 +323,31 @@ mod tests {
         .cloned()
         .collect();
         let bpe = BpeBuilder::default()
-            .vocab_and_merges(vocab, vec![("a".to_string(), "b".to_string())])
+            .vocab_and_merges(vocab, vec![("a".to_string(), "b".to_string(), 2)])
             .unk_token("<unk>".to_string())
             .ignore_merges(true)
             .build()
             .unwrap();
 
         let model = ModelWrapper::BPE(bpe);
-        let legacy = r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":["a b"]}"#;
+        let legacy = r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":["a b 2"]}"#;
         let legacy = serde_json::from_str(legacy).unwrap();
         assert_eq!(model, legacy);
 
         let data = serde_json::to_string(&model).unwrap();
         assert_eq!(
             data,
-            r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":[["a","b"]]}"#
+            r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":[["a","b",2]]}"#
         );
         let reconstructed = serde_json::from_str(&data).unwrap();
         assert_eq!(model, reconstructed);
 
         // Legacy check, type is not necessary.
-        let legacy = r#"{"dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":["a b"]}"#;
+        let legacy = r#"{"dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":["a b 2"]}"#;
         let reconstructed = serde_json::from_str(legacy).unwrap();
         assert_eq!(model, reconstructed);
 
-        let invalid = r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":["a b c"]}"#;
+        let invalid = r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":["a b"]}"#;
         let reconstructed: std::result::Result<ModelWrapper, serde_json::Error> =
             serde_json::from_str(invalid);
         match reconstructed {

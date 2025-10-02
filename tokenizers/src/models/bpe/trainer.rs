@@ -469,7 +469,7 @@ impl BpeTrainer {
         // 5. Do merges
         //
         self.update_progress(&progress, self.vocab_size, "Compute merges");
-        let mut merges: Vec<(Pair, u32)> = vec![];
+        let mut merges: Vec<(Pair, u32, u64)> = vec![]; // <- now also stores frequency
         loop {
             // Stop as soon as we have a big enough vocabulary
             if word_to_id.len() >= self.vocab_size {
@@ -510,7 +510,7 @@ impl BpeTrainer {
                 id_to_word.push(CompactString::from(&new_token));
                 word_to_id.insert(CompactString::from(&new_token), new_token_id);
             }
-            merges.push((top.pair, new_token_id));
+            merges.push((top.pair, new_token_id, top.count)); // <- store frequency
 
             // Merge the new pair in every words
             // Safety: This is just a type assertion, the code below may no longer be safe
@@ -583,7 +583,7 @@ impl BpeTrainer {
         model.merges = merges
             .into_iter()
             .enumerate()
-            .map(|(i, (pair, new_token_id))| (pair, (i as u32, new_token_id)))
+            .map(|(i, (pair, new_token_id, freq))| (pair, (i as u32, new_token_id, freq))) // now triple
             .collect();
 
         model.continuing_subword_prefix = self.continuing_subword_prefix.clone();
@@ -703,14 +703,14 @@ mod tests {
         .collect();
         assert_eq!(model.vocab, expected_vocab);
 
-        // The keys in `merges` are pairs of symbols, the values are tuples of (rank, id),
+        // The keys in `merges` are pairs of symbols, the values are tuples of (rank, id, freq),
         // where 'rank' determines the order in which this merge will be applied during
-        // tokenization, and 'id' is the vocab id of the symbol resulting from merging
-        // the pair of symbols in the corresponding key.
-        let expected_merges: AHashMap<Pair, (u32, u32)> = [
-            ((17, 11), (0, 22)), // 'r' + 'e'  -> 're'
-            ((8, 22), (1, 23)),  // 'a' + 're' -> 'are'
-            ((13, 18), (2, 24)), // 'i' + 's'  -> 'is'
+        // tokenization, 'id' is the vocab id of the symbol resulting from merging
+        // the pair of symbols in the corresponding key, and 'freq' is the frequency at merge.
+        let expected_merges: AHashMap<Pair, (u32, u32, u64)> = [
+            ((17, 11), (0, 22, 3)), // 'r' + 'e'  -> 're'  (freq 3)
+            ((8, 22), (1, 23, 2)),  // 'a' + 're' -> 'are' (freq 2)
+            ((13, 18), (2, 24, 2)), // 'i' + 's'  -> 'is'  (freq 2)
         ]
         .iter()
         .cloned()

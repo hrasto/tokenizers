@@ -9,6 +9,7 @@ struct Merge {
     pos: usize,
     rank: u32,
     new_id: u32,
+    freq: u64, 
 }
 
 impl PartialEq for Merge {
@@ -159,7 +160,7 @@ impl Word {
         changes
     }
 
-    pub(super) fn merge_all(&mut self, merges: &AHashMap<Pair, (u32, u32)>, dropout: Option<f32>) {
+    pub(super) fn merge_all(&mut self, merges: &AHashMap<Pair, (u32, u32, u64)>, dropout: Option<f32>) {
         let mut queue = QuaternaryHeap::with_capacity(self.symbols.len());
         let mut skip = Vec::with_capacity(queue.len());
 
@@ -173,6 +174,7 @@ impl Word {
                         pos: index,
                         rank: m.0,
                         new_id: m.1,
+                        freq: m.2,
                     })
                 }),
         );
@@ -199,7 +201,7 @@ impl Word {
                 let target_new_pair = (self.symbols[top.pos].c, right.c);
                 if merges
                     .get(&target_new_pair)
-                    .is_none_or(|(_, new_id)| *new_id != top.new_id)
+                    .is_none_or(|(_, new_id, _)| *new_id != top.new_id)
                 {
                     continue;
                 }
@@ -220,11 +222,12 @@ impl Word {
                     let prev = current.prev as usize;
                     let prev_symbol = self.symbols[prev];
                     let new_pair = (prev_symbol.c, current.c);
-                    if let Some((rank, new_id)) = merges.get(&new_pair) {
+                    if let Some((rank, new_id, freq)) = merges.get(&new_pair) {
                         queue.push(Merge {
                             pos: current.prev as usize,
                             rank: *rank,
                             new_id: *new_id,
+                            freq: *freq,
                         });
                     }
                 }
@@ -234,11 +237,12 @@ impl Word {
                 if next < self.symbols.len() {
                     let next_symbol = self.symbols[next];
                     let new_pair = (current.c, next_symbol.c);
-                    if let Some((rank, new_id)) = merges.get(&new_pair) {
+                    if let Some((rank, new_id, freq)) = merges.get(&new_pair) {
                         queue.push(Merge {
                             pos: top.pos,
                             rank: *rank,
                             new_id: *new_id,
+                            freq: *freq, 
                         });
                     }
                 }

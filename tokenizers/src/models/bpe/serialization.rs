@@ -24,15 +24,15 @@ impl Serialize for BPE {
         model.serialize_field("ignore_merges", &self.ignore_merges)?;
 
         // Then the large ones
-        let mut merges: Vec<(&Pair, &u32)> = self
+        let mut merges: Vec<(&Pair, &u32, &u64)> = self
             .merges
             .iter()
-            .map(|(pair, (rank, _))| (pair, rank))
+            .map(|(pair, (rank, _, freq))| (pair, rank, freq))
             .collect();
         merges.sort_unstable_by_key(|k| *k.1);
         let merges = merges
             .into_iter()
-            .map(|(pair, _)| (self.vocab_r[&pair.0].clone(), self.vocab_r[&pair.1].clone()))
+            .map(|(pair, _, freq)| (self.vocab_r[&pair.0].clone(), self.vocab_r[&pair.1].clone(), *freq))
             .collect::<Vec<_>>();
         let ordered_vocab = OrderedVocabIter::new(&self.vocab_r);
 
@@ -85,7 +85,7 @@ impl<'de> Visitor<'de> for BPEVisitor {
         #[derive(Debug, Deserialize)]
         #[serde(untagged)]
         enum MergeType {
-            Tuple(Vec<(String, String)>),
+            Tuple(Vec<(String, String, u64)>),
             Legacy(Vec<String>),
         }
         let mut merges: Option<MergeType> = None;
@@ -172,20 +172,20 @@ mod test {
         .cloned()
         .collect();
         let bpe = BpeBuilder::default()
-            .vocab_and_merges(vocab, vec![("a".to_string(), "b".to_string())])
+            .vocab_and_merges(vocab, vec![("a".to_string(), "b".to_string(), 2)])
             .unk_token("<unk>".to_string())
             .ignore_merges(true)
             .build()
             .unwrap();
 
-        let legacy = r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":["a b"]}"#;
+        let legacy = r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":["a b 2"]}"#;
         let legacy = serde_json::from_str(legacy).unwrap();
         assert_eq!(bpe, legacy);
 
         let data = serde_json::to_string(&bpe).unwrap();
         assert_eq!(
             data,
-            r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":[["a","b"]]}"#
+            r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b":2,"ab":3},"merges":[["a","b",2]]}"#
         );
         let reconstructed = serde_json::from_str(&data).unwrap();
         assert_eq!(bpe, reconstructed);
@@ -201,7 +201,7 @@ mod test {
         .cloned()
         .collect();
         let bpe = BpeBuilder::default()
-            .vocab_and_merges(vocab, vec![("a".to_string(), "b c d".to_string())])
+            .vocab_and_merges(vocab, vec![("a".to_string(), "b c d".to_string(), 2)])
             .unk_token("<unk>".to_string())
             .ignore_merges(true)
             .build()
@@ -209,7 +209,7 @@ mod test {
         let data = serde_json::to_string(&bpe).unwrap();
         assert_eq!(
             data,
-            r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b c d":2,"ab c d":3},"merges":[["a","b c d"]]}"#
+            r#"{"type":"BPE","dropout":null,"unk_token":"<unk>","continuing_subword_prefix":null,"end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":true,"vocab":{"<unk>":0,"a":1,"b c d":2,"ab c d":3},"merges":[["a","b c d",2]]}"#
         );
         let reconstructed = serde_json::from_str(&data).unwrap();
         assert_eq!(bpe, reconstructed);
